@@ -1,0 +1,6 @@
+{
+  "name": "Agency Booking Tracker",
+  "description": "A robust full-stack dashboard for managing agency bookings, containing audit tracking, automated references, advanced filters, and CSV export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
