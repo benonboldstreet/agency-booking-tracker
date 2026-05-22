@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { KeyRound, Mail, Lock, ShieldCheck, AlertCircle, Database, Phone, Settings, Sparkles, Sliders } from 'lucide-react';
 import { SupabaseClient } from '@supabase/supabase-js';
 import OptionsLogo from './OptionsLogo';
+import { getPortalUsers, savePortalUsers } from '../lib/supabase';
+import { PortalUser } from '../types';
 
 interface LoginViewProps {
   supabase: SupabaseClient | null;
@@ -49,14 +51,44 @@ export default function LoginView({
     setErrorNotice(null);
     setSuccessNotice(null);
 
+    // 1. Intercept custom registered users (such as Ian, Ben Simpson, or database managers added via dashboard)
+    const localUsers = getPortalUsers();
+    const matched = localUsers.find(
+      (u) => u.email.trim().toLowerCase() === email.trim().toLowerCase()
+    );
+
+    if (matched) {
+      if (password === matched.password) {
+        onLoginSuccess(matched.email);
+        setLoading(false);
+        return;
+      } else {
+        setErrorNotice('Incorrect password for this registered system user. Please verify password details.');
+        setLoading(false);
+        return;
+      }
+    }
+
+    // 2. Fallback to Supabase if not found in custom user list
     if (!supabase) {
-      setErrorNotice('Supabase is not initialized. Please click Configuration API at the top to configure your connection credentials.');
+      setErrorNotice('Account email is not registered in the system team roster, and direct Supabase database connector is offline. Setup credentials or log in with fallback sandbox.');
       setLoading(false);
       return;
     }
 
     try {
       if (isSignUp) {
+        // Log in locally as well
+        const newUser: PortalUser = {
+          id: 'u-' + Date.now(),
+          email: email.trim(),
+          password: password,
+          role: 'manager',
+          created_at: new Date().toISOString()
+        };
+        const updatedUsers = [...localUsers, newUser];
+        savePortalUsers(updatedUsers);
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -66,7 +98,7 @@ export default function LoginView({
         if (data.user && data.session) {
           onLoginSuccess(data.user.email || email);
         } else {
-          setSuccessNotice('Registration successful! Since email confirmation is required, you can check your inbox OR click the "Bypass & Force Login" option below on login screen to review immediately without waiting.');
+          setSuccessNotice('Registration successful on cloud backend as well! Check mailbox or click local sandbox options to start immediately.');
           setIsSignUp(false);
         }
       } else {

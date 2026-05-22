@@ -16,7 +16,8 @@ import {
   LogOut,
   Sparkles,
   Phone,
-  Mail
+  Mail,
+  Users
 } from 'lucide-react';
 
 import { Booking, BookingResolved, LookupItem, AuditLogItem } from './types';
@@ -29,7 +30,8 @@ import {
   DEFAULT_SHIFT_TYPES, 
   DEFAULT_REASONS, 
   DEFAULT_BOOKINGS, 
-  DEFAULT_AUDIT_LOGS 
+  DEFAULT_AUDIT_LOGS,
+  getPortalUsers
 } from './lib/supabase';
 import { exportToCSV, triggerNetlifyFunction } from './utils/bookingUtils';
 
@@ -40,6 +42,7 @@ import FilterBar from './components/FilterBar';
 import AuditLogView from './components/AuditLogView';
 import LookupManagementView from './components/LookupManagementView';
 import OptionsLogo from './components/OptionsLogo';
+import UserManagementView from './components/UserManagementView';
 
 export default function App() {
   // Authentication & environment states
@@ -79,8 +82,22 @@ export default function App() {
   const [isAuditOpen, setIsAuditOpen] = useState(false);
   const [isLookupOpen, setIsLookupOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Compute if logged-in manager is a super admin
+  const isSuperAdmin = useMemo(() => {
+    if (!currentUserEmail) return false;
+    const portalUsers = getPortalUsers();
+    const matched = portalUsers.find(
+      u => u.email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase()
+    );
+    if (matched) {
+      return matched.role === 'super_admin';
+    }
+    return currentUserEmail.trim().toLowerCase() === 'iambensimpson@gmail.com';
+  }, [currentUserEmail]);
 
   // Filters state
   const [searchStaff, setSearchStaff] = useState('');
@@ -1092,10 +1109,25 @@ OPTIONS Trust Support System`;
                     return `${userName}@optionsempowers.org.uk`;
                   })()}
                 </span>
-                <span className="text-[9px] text-[#2CDCA4] font-black uppercase mt-1 tracking-wider">
-                  Staff Manager Role
+                <span className={`text-[9px] font-black uppercase mt-1 tracking-wider ${isSuperAdmin ? 'text-purple-600' : 'text-[#2CDCA4]'}`}>
+                  {isSuperAdmin ? 'Super Admin Role' : 'Staff Manager Role'}
                 </span>
               </div>
+
+              {isSuperAdmin && (
+                <>
+                  <div className="h-6 w-[1px] bg-slate-200 hidden md:block" />
+                  <button
+                    onClick={() => setIsUserManagementOpen(true)}
+                    type="button"
+                    className="px-2.5 py-1.5 rounded-lg text-emerald-800 bg-emerald-50 hover:bg-emerald-100/85 hover:text-emerald-900 border border-emerald-250 cursor-pointer transition-all flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide shadow-2xs"
+                    title="Manage Team Portal Logins and Credentials"
+                  >
+                    <Users className="h-3.5 w-3.5 text-emerald-600" />
+                    <span>Team Logins</span>
+                  </button>
+                </>
+              )}
 
               <div className="h-6 w-[1px] bg-slate-200" />
 
@@ -1522,6 +1554,13 @@ OPTIONS Trust Support System`;
       </main>
 
       {/* Dynamic Popups, Side Drawers, Modals rendering */}
+      {isUserManagementOpen && (
+        <UserManagementView
+          currentUserEmail={currentUserEmail || ''}
+          onClose={() => setIsUserManagementOpen(false)}
+        />
+      )}
+
       <SettingsPanel
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}

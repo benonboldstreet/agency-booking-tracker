@@ -55,3 +55,12 @@ export interface SupabaseConfig {
   isSandbox: boolean; // True if using local/sandbox fallback data
 }
 
+export interface PortalUser {
+  id: string;
+  email: string;
+  password?: string;
+  role: 'super_admin' | 'manager';
+  created_at: string;
+}
+
+

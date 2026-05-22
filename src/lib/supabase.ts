@@ -1,5 +1,55 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Booking, AuditLogItem, LookupItem, TeamLeaderItem } from '../types';
+import { Booking, AuditLogItem, LookupItem, TeamLeaderItem, PortalUser } from '../types';
+
+// Default Portal Users
+export const DEFAULT_PORTAL_USERS: PortalUser[] = [
+  {
+    id: 'u-1',
+    email: 'Iambensimpson@gmail.com',
+    password: 'Options123',
+    role: 'super_admin',
+    created_at: '2026-05-22T08:00:00Z'
+  },
+  {
+    id: 'u-2',
+    email: 'ian.parr@optionsempowers.org.uk',
+    password: 'Options123',
+    role: 'manager',
+    created_at: '2026-05-22T08:00:00Z'
+  }
+];
+
+export function getPortalUsers(): PortalUser[] {
+  const stored = localStorage.getItem('agency_portal_users');
+  if (stored) {
+    try {
+      const parsed: PortalUser[] = JSON.parse(stored);
+      // Automatically migrate old email u-2 to the correct updated address if stored in local storage
+      let modified = false;
+      const updated = parsed.map(user => {
+        if (user.id === 'u-2' && user.email.toLowerCase() === 'ian@optionsempowers.org.uk') {
+          modified = true;
+          return { ...user, email: 'ian.parr@optionsempowers.org.uk' };
+        }
+        return user;
+      });
+      if (modified) {
+        localStorage.setItem('agency_portal_users', JSON.stringify(updated));
+        return updated;
+      }
+      return parsed;
+    } catch {
+      return DEFAULT_PORTAL_USERS;
+    }
+  }
+  localStorage.setItem('agency_portal_users', JSON.stringify(DEFAULT_PORTAL_USERS));
+  return DEFAULT_PORTAL_USERS;
+}
+
+export function savePortalUsers(users: PortalUser[]) {
+  localStorage.setItem('agency_portal_users', JSON.stringify(users));
+}
+
 
 // Default Demo / Mock Data for Sandbox Mode
 export const DEFAULT_HOUSES: LookupItem[] = [
@@ -119,19 +169,32 @@ const STORAGE_KEYS = {
 };
 
 // Default setup values from active Supabase configuration
-const DEFAULT_SUPABASE_URL = 'https://agokoesbixesteqhtanb.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_2K_PjXu2DgdQZY9xccjweA_kn5Yy97t';
+const DEFAULT_SUPABASE_URL = 'https://agokoesbixesterqhtanb.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFnb2tvZXNiaXhlc3RlcWh0YW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMjg4NTYsImV4cCI6MjA5NDkwNDg1Nn0.oigBYX-0SPVBgYzlda2-5WZwFyw4nnRLL6wfgvdP_X4';
 
-// Retrieve configured credentials, falling back to preset values
+// Retrieve configured credentials, falling back to preset values with self-healing legacy cleanup
 export function getSavedCredentials() {
-  const localUrl = localStorage.getItem(STORAGE_KEYS.URL) ?? DEFAULT_SUPABASE_URL;
-  const localKey = localStorage.getItem(STORAGE_KEYS.KEY) ?? DEFAULT_SUPABASE_ANON_KEY;
+  let localUrl = localStorage.getItem(STORAGE_KEYS.URL);
+  let localKey = localStorage.getItem(STORAGE_KEYS.KEY);
+  
+  // Automatically self-heal old typo/incorrect values in user browser localstorage
+  if (localUrl && localUrl.includes('agokoesbixesteqhtanb')) {
+    localStorage.removeItem(STORAGE_KEYS.URL);
+    localUrl = null;
+  }
+  if (localKey === 'sb_publishable_2K_PjXu2DgdQZY9xccjweA_kn5Yy97t') {
+    localStorage.removeItem(STORAGE_KEYS.KEY);
+    localKey = null;
+  }
+
+  const url = localUrl ?? DEFAULT_SUPABASE_URL;
+  const anonKey = localKey ?? DEFAULT_SUPABASE_ANON_KEY;
   const isSandbox = localStorage.getItem(STORAGE_KEYS.SANDBOX) === 'true';
   
   return {
-    url: localUrl,
-    anonKey: localKey,
-    isSandbox: isSandbox
+    url,
+    anonKey,
+    isSandbox
   };
 }
 
